@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attendance System</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+
+  <!-- Face API CDN -->
+  <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
+</head>
+
+<body>
+
+  <!-- BACKGROUND -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-1" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-2" aria-hidden="true"></div>
+
+  <video id="video" class="video-hidden" autoplay muted playsinline></video>
+
+  <!-- AUTH SECTION -->
+  <div id="authSection" class="auth-wrapper">
+    <div class="auth-card">
+
+      <!-- Brand -->
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-name">Attendance System</h1>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="auth-tabs" role="tablist">
+        <button id="tabLogin" class="tab-btn active" role="tab" aria-selected="true" aria-controls="panelLogin">
+          Login
+        </button>
+        <button id="tabSignup" class="tab-btn" role="tab" aria-selected="false" aria-controls="panelSignup">
+          Sign Up
+        </button>
+      </div>
+
+      <!-- Auth Message -->
+      <div id="authMessage" class="auth-message" style="display:none;" role="alert"></div>
+
+      <!-- ── LOGIN PANEL ── -->
+      <div id="panelLogin" class="tab-panel active" role="tabpanel">
+        <div class="field-group">
+          <label for="authUsername">Username</label>
+          <input id="authUsername" type="text" placeholder="username" autocomplete="username" />
+        </div>
+        <div class="field-group">
+          <label for="authPassword">Password</label>
+          <input id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button id="loginBtn" class="btn btn-primary" type="button">Login</button>
+      </div>
+
+      <!-- ── SIGNUP PANEL ── -->
+      <div id="panelSignup" class="tab-panel" role="tabpanel">
+        <div class="field-row">
+          <div class="field-group">
+            <label for="authUsernameReg">Username</label>
+            <input id="authUsernameReg" type="text" placeholder="username" autocomplete="username" />
+          </div>
+          <div class="field-group">
+            <label for="authPasswordReg">Password</label>
+            <input id="authPasswordReg" type="password" placeholder="••••••••" autocomplete="new-password" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label for="regStudentId">Student ID</label>
+            <input id="regStudentId" type="text" placeholder="231-08-0001" />
+          </div>
+          <div class="field-group">
+            <label for="regMajor">Major</label>
+            <select id="regMajor">
+              <option value="" disabled selected>Select…</option>
+              <option value="BSIT">BSIT</option>
+              <option value="BSA">BSA</option>
+              <option value="BSBA">BSBA</option>
+              <option value="BSCRIM">BSCRIM</option>
+              <option value="COA">COA</option>
+              <option value="BSHM">BSHM</option>
+              <option value="BEED">BEED</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="regFullName">Full Name</label>
+          <input id="regFullName" type="text" placeholder="Juan Dela Cruz" autocomplete="name" />
+        </div>
+        <button id="signupBtn" class="btn btn-primary" type="button">Create Account</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- APP SECTION -->
+  <div id="appSection" style="display:none;">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <div class="brand-icon small" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <span class="brand-name">Attendance System</span>
+      </div>
+      <div class="topbar-right">
+        <span class="welcome-text">Welcome, <strong id="welcomeName"></strong></span>
+        <button id="logoutBtn" class="btn btn-ghost" type="button">Logout</button>
+      </div>
+    </header>
+
+    <main class="app-main">
+
+      <!-- LEFT COLUMN -->
+      <aside class="left-col">
+
+        <!-- Profile Card -->
+        <div class="card profile-card" id="profileCard" hidden>
+          <div class="profile-photo-wrap">
+            <img id="profilePhoto" class="profile-photo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23888'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 20c0-4 3.6-7 8-7s8 3 8 7'/%3E%3C/svg%3E" alt="Profile photo" />
+          </div>
+          <div class="profile-info">
+            <h3 id="profileName" class="profile-name">—</h3>
+            <div class="profile-meta">
+              <span class="meta-badge" id="profileStudentId">—</span>
+              <span class="meta-badge accent" id="profileMajor">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Face Registration -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Face Registration</h2>
+            <div class="mode-toggle">
+              <button id="newStudentBtn" class="mode-btn active">New Student</button>
+              <button id="existingStudentBtn" class="mode-btn">Add Face</button>
+            </div>
+          </div>
+
+          <!-- Camera wrap -->
+          <div class="camera-wrap" id="cameraWrap">
+
+            <div class="camera-placeholder" id="cameraPlaceholder">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+                <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+              </svg>
+              <p id="cameraPlaceholderMsg">Camera not started</p>
+              <button id="startCameraBtn" class="btn btn-secondary" type="button" style="margin-top:8px;">
+                ▶ Start Camera
+              </button>
+            </div>
+            <div class="camera-overlay" aria-hidden="true" id="scanOverlay" style="display:none;">
+              <div class="scan-ring"></div>
+            </div>
+          </div>
+
+          <div class="field-group mt-12">
+            <label for="faceStudentId">Student ID</label>
+            <input id="faceStudentId" type="text" placeholder="231-08-0007" />
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label for="faceName">Full Name</label>
+              <input id="faceName" type="text" placeholder="Juan Dela Cruz" />
+            </div>
+            <div class="field-group">
+              <label for="faceMajor">Major</label>
+              <select id="faceMajor">
+                  <option value="" disabled selected>Select…</option>
+                  <option value="BSIT">BSIT</option>
+                  <option value="BSA">BSA</option>
+                  <option value="BSBA">BSBA</option>
+                  <option value="BSCRIM">BSCRIM</option>
+                  <option value="COA">COA</option>
+                  <option value="BSHM">BSHM</option>
+                  <option value="BEED">BEED</option>
+            </select>
+            </div>
+          </div>
+
+          <div id="faceStatus" class="face-status" style="display:none;"></div>
+
+          <div class="btn-row">
+            <button id="registerFaceBtn" class="btn btn-secondary" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Register Face
+            </button>
+            <button id="attendanceBtn" class="btn btn-primary" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Mark Attendance
+            </button>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- RIGHT COLUMN -->
+      <section class="right-col">
+        <div class="card dashboard-card">
+          <div class="card-header">
+            <h2 class="card-title">Attendance Log</h2>
+            <div class="dashboard-meta">
+              <span class="live-badge">
+                <span class="live-dot"></span>
+                Live
+              </span>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Timestamp</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-body"></tbody>
+            </table>
+          </div>
+
+          <div id="dashboardEmpty" class="empty-state" style="display:none;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <p>No attendance records yet.</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODULE SCRIPTS -->
+  <script type="module" src="supabase.js"></script>
+  <script type="module" src="face.js"></script>
+  <script type="module" src="fingerprint.js"></script>
+
+  <script type="module">
+    import { supabase }      from "./supabase.js";
+    import { loadDashboard } from "./face.js";
+
+    const video = document.getElementById("video");
+
+    async function startCamera() {
+      const btn     = document.getElementById("startCameraBtn");
+      const msgEl   = document.getElementById("cameraPlaceholderMsg");
+      const wrap    = document.getElementById("cameraWrap");
+      const overlay = document.getElementById("scanOverlay");
+
+      if (btn)   btn.disabled = true;
+      if (msgEl) msgEl.textContent = "Starting camera…";
+
+      if (video.srcObject && video.srcObject.active) {
+        video.className = "camera-video";
+        wrap.prepend(video);
+        document.getElementById("cameraPlaceholder").style.display = "none";
+        if (overlay) overlay.style.display = "flex";
+        document.getElementById("faceStatus").style.display = "none";
+        console.log("Camera already active, reattached.");
+        return;
+      }
+
+      try {
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+        video.srcObject = stream;
+        await video.play().catch(() => {});
+
+        video.className = "camera-video";
+        wrap.prepend(video);
+        document.getElementById("cameraPlaceholder").style.display = "none";
+        if (overlay) overlay.style.display = "flex";
+        document.getElementById("faceStatus").style.display = "none";
+
+        console.log("Camera active:", stream.getTracks()[0].label);
+
+      } catch (err) {
+        console.error("Camera error:", err.name, err.message);
+        if (btn)   { btn.disabled = false; btn.textContent = "↺ Retry Camera"; }
+
+        let errMsg = "";
+        if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+          errMsg = "Camera Error";
+        } else if (err.name === "NotAllowedError") {
+          errMsg = "Camera permission denied — click the 🔒 in the address bar and set Camera to Allow, then click Retry.";
+        } else if (err.name === "NotFoundError") {
+          errMsg = "No camera found.";
+        } else {
+          errMsg = `Camera error: ${err.name}. Check browser console for details.`;
+        }
+        if (msgEl) msgEl.textContent = errMsg;
+      }
+    }
+
+    // Expose so face.js can check camera state
+    window._getVideoEl = () => video;
+
+    /*  TABS  */
+    const tabLogin  = document.getElementById("tabLogin");
+    const tabSignup = document.getElementById("tabSignup");
+
+    function activateTab(activeTab) {
+      [tabLogin, tabSignup].forEach((t) => {
+        const isActive = t === activeTab;
+        t.classList.toggle("active", isActive);
+        t.setAttribute("aria-selected", String(isActive));
+        const panel = document.getElementById(t.getAttribute("aria-controls"));
+        if (panel) panel.classList.toggle("active", isActive);
+      });
+      clearMessage();
+    }
+    tabLogin.addEventListener("click",  () => activateTab(tabLogin));
+    tabSignup.addEventListener("click", () => activateTab(tabSignup));
+
+    /*  MESSAGE HELPER  */
+    function showMessage(msg, isError) {
+      const el = document.getElementById("authMessage");
+      el.textContent = msg;
+      el.className = `auth-message ${isError ? "error" : "success"}`;
+      el.style.display = "block";
+    }
+    function clearMessage() {
+      const el = document.getElementById("authMessage");
+      el.style.display = "none";
+    }
+
+    function setLoading(btn, loading, label) {
+      btn.disabled = loading;
+      btn.textContent = loading ? "Please wait…" : label;
+    }
+
+    /*  LOGIN  */
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const username = document.getElementById("authUsername").value.trim();
+      const password = document.getElementById("authPassword").value;
+      const btn = document.getElementById("loginBtn");
+      if (!username || !password) { showMessage("Enter your username and password.", true); return; }
+      setLoading(btn, true, "Login");
+      const { data, error } = await supabase.from("users").select("*").eq("username", username).maybeSingle();
+      setLoading(btn, false, "Login");
+      if (error || !data || data.password !== password) { showMessage("Invalid username or password.", true); return; }
+      sessionStorage.setItem("currentUser", JSON.stringify(data));
+      initApp(data);
+    });
+
+    /*  SIGN UP  */
+    document.getElementById("signupBtn").addEventListener("click", async () => {
+      const username  = document.getElementById("authUsernameReg").value.trim();
+      const password  = document.getElementById("authPasswordReg").value;
+      const studentId = document.getElementById("regStudentId").value.trim();
+      const fullName  = document.getElementById("regFullName").value.trim();
+      const major     = document.getElementById("regMajor").value;
+      const btn = document.getElementById("signupBtn");
+
+      if (!username || !password || !studentId || !fullName || !major) { showMessage("Please fill in all fields.", true); return; }
+      if (password.length < 6) { showMessage("Password must be at least 6 characters.", true); return; }
+      setLoading(btn, true, "Create Account");
+
+      const { data: existing } = await supabase.from("users").select("id").eq("username", username).maybeSingle();
+      if (existing) { showMessage("Username already taken.", true); setLoading(btn, false, "Create Account"); return; }
+      const { error } = await supabase.from("users").insert([{ username, password, student_id: studentId, full_name: fullName, major }]);
+      setLoading(btn, false, "Create Account");
+
+      if (error) { showMessage("Sign-up failed: " + error.message, true); }
+      else { showMessage("Account created! You can now log in.", false); activateTab(tabLogin); }
+    });
+
+    /*  LOGOUT  */
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      sessionStorage.removeItem("currentUser");
+
+      video.className = "video-hidden";
+      document.body.appendChild(video);
+
+      const overlay = document.getElementById("scanOverlay");
+      if (overlay) overlay.style.display = "none";
+
+      document.getElementById("authUsername").value = "";
+      document.getElementById("authPassword").value = "";
+      document.getElementById("appSection").style.display = "none";
+      document.getElementById("authSection").style.display = "flex";
+      clearMessage();
+    });
+
+    /*  INIT APP  */
+    function initApp(user) {
+      document.getElementById("appSection").style.display = "block";
+      document.getElementById("authSection").style.display = "none";
+      document.getElementById("profileName").textContent      = user.full_name;
+      document.getElementById("profileStudentId").textContent = user.student_id;
+      document.getElementById("profileMajor").textContent     = user.major;
+      document.getElementById("profileCard").hidden           = false;
+      document.getElementById("welcomeName").textContent      = user.full_name;
+      loadDashboard();
+
+      // Wire "Start Camera" button (safe to call multiple times — addEventListener ignores dupes)
+      document.getElementById("startCameraBtn")
+        ?.addEventListener("click", startCamera, { once: false });
+    }
+
+    /*  RESTORE SESSION  */
+    const saved = sessionStorage.getItem("currentUser");
+    if (saved) { initApp(JSON.parse(saved)); }
+  </script>
+
+</body>
+</html>
