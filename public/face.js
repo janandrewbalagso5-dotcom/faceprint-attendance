@@ -173,6 +173,14 @@ async function markAttendance() {
   const user = registeredUsers.find(u => u.student_id === match.label);
   if (!user) { showFaceStatus("Matched user not found in local data.", true); return; }
 
+  // Verify the recognised face belongs to the currently logged-in student
+  const currentUser = JSON.parse(sessionStorage.getItem("currentUser") || "null");
+  if (!currentUser || user.student_id !== currentUser.student_id) {
+    hideProfile();
+    showFaceStatus("Face does not match the logged-in account. Please use your own face.", true);
+    return;
+  }
+
   const status = getAttendanceStatus(new Date());
 
   const { error } = await supabase.from("attendance").insert({ user_id: user.id, status });
@@ -190,7 +198,8 @@ export function showProfile(user, photo = null) {
   const card = document.getElementById("profileCard");
   if (!card) return;
   card.hidden = false;
-  document.getElementById("profileName").textContent      = user.full_name ?? user.name;
+  const displayName = user.full_name ?? user.name;
+  document.getElementById("profileName").textContent      = displayName;
   document.getElementById("profileStudentId").textContent = user.student_id;
   document.getElementById("profileMajor").textContent     = user.major;
   const photoEl = document.getElementById("profilePhoto");
