@@ -153,7 +153,7 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.2; }
 .brand-name {
   font-family: var(--font-display);
   font-size:   1.7rem;
-  font-weight: 800;
+  font-weight: 650;
   color:       var(--text-1);
   letter-spacing: -0.5px;
 }
@@ -688,3 +688,4 @@ tbody tr:hover { background: var(--bg-3); }
   .app-main   { padding: 16px; gap: 16px; }
   .btn-row    { flex-direction: column; }
 }
+
