@@ -75,6 +75,49 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.2; }
   max-width:     480px;
   box-shadow:    var(--shadow-lg);
   animation:     fadeUp 0.35s ease both;
+  transition:    max-width 0.25s ease;
+}
+
+/* Widen card when signup tab is active */
+.auth-card.signup-wide {
+  max-width: 860px;
+}
+
+/* Signup two-column layout */
+.signup-two-col {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 24px;
+  align-items: start;
+}
+
+.signup-face-label {
+  font-size:     0.8rem;
+  font-weight:   600;
+  color:         var(--text-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.face-optional {
+  font-weight:   400;
+  color:         var(--text-3);
+  text-transform: none;
+  font-size:     0.75rem;
+}
+
+.signup-camera-wrap {
+  aspect-ratio: 4/3;
+}
+
+@media (max-width: 720px) {
+  .signup-two-col {
+    grid-template-columns: 1fr;
+  }
+  .auth-card.signup-wide {
+    max-width: 480px;
+  }
 }
 
 @keyframes fadeUp {
@@ -605,7 +648,15 @@ tbody tr:hover { background: var(--bg-3); }
 }
 .empty-state p { font-size: 0.9rem; }
 
-/* ─── FP MESSAGE ─── */
+/* ─── REG SCAN OVERLAY ─── */
+.reg-scan-canvas {
+  position:       absolute;
+  inset:          0;
+  width:          100%;
+  height:         100%;
+  pointer-events: none;
+  z-index:        3;
+}
 .fp-message {
   padding:       10px 14px;
   border-radius: var(--radius-sm);
