@@ -17,11 +17,28 @@ function todayPH() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 }
 
+/**
+ * WebAuthn requires a real registered domain as the rpId.
+ * localhost, 127.0.0.1, and plain IPs are rejected by desktop browsers.
+ * When running locally we omit rpId so the browser uses its own safe default.
+ */
+function getRpId() {
+  const hostname = window.location.hostname;
+  const isLocal =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "" ||
+    /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname); // any raw IP address
+  return isLocal ? undefined : hostname;
+}
+
 export async function registerFingerprint(userId, username) {
   if (!window.PublicKeyCredential) {
     showFingerprintMessage("WebAuthn is not supported in this browser.", true);
     return false;
   }
+
+  const rpId = getRpId();
 
   try {
     const credential = await navigator.credentials.create({
@@ -29,7 +46,8 @@ export async function registerFingerprint(userId, username) {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         rp: {
           name: "Attendance App",
-          id: window.location.hostname,
+          // Only include id when we have a real domain; omit for localhost/IP
+          ...(rpId ? { id: rpId } : {}),
         },
         user: {
           id: new TextEncoder().encode(String(userId)),
@@ -37,8 +55,8 @@ export async function registerFingerprint(userId, username) {
           displayName: username,
         },
         pubKeyCredParams: [
-          { type: "public-key", alg: -7  },
-          { type: "public-key", alg: -257 },
+          { type: "public-key", alg: -7   }, // ES256
+          { type: "public-key", alg: -257 }, // RS256
         ],
         userVerification: "required",
         authenticatorSelection: {
@@ -50,9 +68,13 @@ export async function registerFingerprint(userId, username) {
 
     const credentialIdBase64 = bufferToBase64(credential.rawId);
 
+    // Also store the rpId so we use the same one during verification
     const { error } = await supabase
       .from("users")
-      .update({ credential_id: credentialIdBase64 })
+      .update({
+        credential_id: credentialIdBase64,
+        credential_rp_id: rpId ?? "localhost",
+      })
       .eq("id", userId);
 
     if (error) {
@@ -65,7 +87,10 @@ export async function registerFingerprint(userId, username) {
 
   } catch (err) {
     console.error("WebAuthn registration error:", err);
-    showFingerprintMessage("Fingerprint registration failed or was cancelled.", true);
+    const msg = err.name === "SecurityError"
+      ? "Fingerprint registration requires a secure domain (HTTPS or localhost). Please open the app via its deployed URL."
+      : "Fingerprint registration failed or was cancelled.";
+    showFingerprintMessage(msg, true);
     return false;
   }
 }
@@ -76,10 +101,10 @@ export async function verifyFingerprint(userId) {
     return false;
   }
 
-  // Fetch stored credential ID
+  // Fetch stored credential ID and the rpId it was registered under
   const { data: userData, error: fetchUserError } = await supabase
     .from("users")
-    .select("credential_id")
+    .select("credential_id, credential_rp_id")
     .eq("id", userId)
     .maybeSingle();
 
@@ -93,7 +118,24 @@ export async function verifyFingerprint(userId) {
     return false;
   }
 
-  // Ask device to verify biometric
+  // Use the rpId that was active at registration time
+  const registeredRpId = userData.credential_rp_id;
+  const currentRpId    = getRpId();
+
+  // If the stored rpId doesn't match the current context, the credential
+  // won't work here — warn the user instead of throwing a confusing error.
+  if (
+    registeredRpId &&
+    registeredRpId !== "localhost" &&
+    currentRpId !== registeredRpId
+  ) {
+    showFingerprintMessage(
+      "This fingerprint was registered on a different domain. Please re-register on this device.",
+      true
+    );
+    return false;
+  }
+
   try {
     await navigator.credentials.get({
       publicKey: {
@@ -106,21 +148,25 @@ export async function verifyFingerprint(userId) {
           },
         ],
         userVerification: "required",
-        rpId: window.location.hostname,
+        // Only pass rpId when we have a real domain
+        ...(currentRpId ? { rpId: currentRpId } : {}),
       },
     });
   } catch (err) {
     console.error("WebAuthn verification error:", err);
-    showFingerprintMessage("Fingerprint verification failed or was cancelled.", true);
+    const msg = err.name === "SecurityError"
+      ? "Fingerprint verification requires a secure domain (HTTPS or localhost)."
+      : "Fingerprint verification failed or was cancelled.";
+    showFingerprintMessage(msg, true);
     return false;
   }
 
-  // Biometric passed — now handle Time In / Time Out session logic
+  // Biometric passed — handle Time In / Time Out session logic
   const session = await getTodaySession(userId);
   const now     = new Date().toISOString();
 
   if (!session) {
-    // ── TIME IN: create a new session row ──
+    // TIME IN: create a new session row
     const { error } = await supabase.from("attendance").insert({
       user_id:  userId,
       date:     todayPH(),
@@ -133,7 +179,7 @@ export async function verifyFingerprint(userId) {
     showFingerprintMessage("Fingerprint verified — Time In recorded.", false);
 
   } else if (!session.time_out) {
-    // ── TIME OUT: update the existing session row ──
+    // TIME OUT: update the existing session row
     const { error } = await supabase
       .from("attendance")
       .update({ time_out: now })
@@ -159,5 +205,5 @@ function showFingerprintMessage(msg, isError) {
   el.textContent = msg;
   el.className = `fp-message ${isError ? "error" : "success"}`;
   el.style.display = "block";
-  setTimeout(() => (el.style.display = "none"), 4000);
+  setTimeout(() => (el.style.display = "none"), 5000);
 }
