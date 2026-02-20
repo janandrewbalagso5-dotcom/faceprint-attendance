@@ -1,6 +1,5 @@
 import { supabase } from "./supabase.js";
 
-/* STATE */
 let modelsLoaded    = false;
 let registeredUsers = [];
 let registrationMode = "new";
@@ -15,24 +14,29 @@ function getOpts() {
 
 function getVideo() { return document.getElementById("video"); }
 
-/* ─── ATTENDANCE SESSION HELPERS ─────────────────────────── */
-
-// Returns today's date string in PH time (YYYY-MM-DD) for the date column
+// Returns today's date in Manila time (YYYY-MM-DD)
 function todayPH() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 }
 
-// Returns the existing session row for today, or null
+// Fetch the true UTC time directly from Supabase server
+async function getServerTime() {
+  const { data } = await supabase.rpc("get_server_time");
+  return data ?? new Date().toISOString(); 
+}
+
 export async function getTodaySession(userId) {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from("attendance")
     .select("id, time_in, time_out")
     .eq("user_id", userId)
-    .eq("date", todayPH())
-    .maybeSingle();
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1);
 
   if (error) { console.error("getTodaySession error:", error); return null; }
-  return data;
+  return data?.[0] ?? null;
 }
 
 // "TIME IN" if no session yet, "TIME OUT" if session has no time_out, "DONE" if complete
@@ -202,14 +206,12 @@ async function markAttendance() {
   }
 
   const session = await getTodaySession(user.id);
-  const now     = new Date().toISOString();
 
   if (!session) {
     // ── TIME IN: create a new session row ──
     const { error } = await supabase.from("attendance").insert({
       user_id:  user.id,
-      date:     todayPH(),
-      time_in:  now,
+      // time_in and date default to now()/CURRENT_DATE server-side
     });
     if (error) { showFaceStatus("Error recording Time In: " + error.message, true); return; }
     showFaceStatus(`Time In recorded — ${user.name}`, false);
@@ -218,7 +220,7 @@ async function markAttendance() {
     // ── TIME OUT: update the existing session row ──
     const { error } = await supabase
       .from("attendance")
-      .update({ time_out: now })
+      .update({ time_out: await getServerTime() })
       .eq("id", session.id);
     if (error) { showFaceStatus("Error recording Time Out: " + error.message, true); return; }
     showFaceStatus(`Time Out recorded — ${user.name}`, false);
@@ -259,7 +261,6 @@ function showFaceStatus(msg, isError = false) {
   el.style.display = "block";
 }
 
-/* ─── DASHBOARD ──────────────────────────────────────────── */
 export async function loadDashboard() {
   const tbody      = document.getElementById("dashboard-body");
   const emptyState = document.getElementById("dashboardEmpty");
@@ -293,17 +294,26 @@ export async function loadDashboard() {
 
   function formatTimePH(ts) {
     if (!ts) return "—";
-    const d = new Date(ts);
-    return isNaN(d) ? "—" : d.toLocaleString("en-PH", {
-      timeZone: "Asia/Manila", month: "short",
-      day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: true,
+    const normalized = /[Z+\-]\d{2}:?\d{2}$/.test(ts) ? ts : ts + "Z";
+    const d = new Date(normalized);
+    if (isNaN(d)) return "—";
+    return d.toLocaleString("en-PH", {
+      timeZone: "Asia/Manila",
+      hour:     "2-digit",
+      minute:   "2-digit",
+      hour12:   true,
     });
   }
 
   tbody.innerHTML = rows.map(row => {
     const name    = userMap[row.user_id]?.full_name ?? "Unknown";
-    const dateStr = row.date
-      ? new Date(row.date + "T00:00:00").toLocaleDateString("en-PH", { month: "short", day: "2-digit", year: "numeric" })
+    const dateStr = row.time_in
+      ? (() => {
+          const normalized = /[Z+\-]\d{2}:?\d{2}$/.test(row.time_in) ? row.time_in : row.time_in + "Z";
+          return new Date(normalized).toLocaleDateString("en-PH", {
+            timeZone: "Asia/Manila", month: "short", day: "2-digit", year: "numeric"
+          });
+        })()
       : "—";
     const timeIn  = formatTimePH(row.time_in);
     const timeOut = formatTimePH(row.time_out);
@@ -336,7 +346,6 @@ document.getElementById("existingStudentBtn")?.addEventListener("click", () => {
   showFaceStatus("Add Face mode active.", false);
 });
 
-/* INIT */
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("registerFaceBtn")?.addEventListener("click", registerFace);
   document.getElementById("attendanceBtn")?.addEventListener("click", markAttendance);
