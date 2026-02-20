@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js";
 
+/* STATE */
 let modelsLoaded    = false;
 let registeredUsers = [];
 let registrationMode = "new";
@@ -8,23 +9,31 @@ const MODEL_URL = "https://justadudewhohacks.github.io/face-api.js/models";
 
 let _opts = null;
 function getOpts() {
-  if (!_opts) _opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+  // inputSize 416 gives a richer, more discriminative descriptor than 224
+  if (!_opts) _opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
   return _opts;
 }
 
 function getVideo() { return document.getElementById("video"); }
 
-// Returns today's date in Manila time (YYYY-MM-DD)
+/* ─── ATTENDANCE SESSION HELPERS ─────────────────────────── */
+
+// Returns today's date in Manila time (YYYY-MM-DD) for matching attendance sessions
 function todayPH() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 }
 
-// Fetch the true UTC time directly from Supabase server
+// Fetch the true UTC time directly from Supabase server — avoids wrong client clock
 async function getServerTime() {
   const { data } = await supabase.rpc("get_server_time");
-  return data ?? new Date().toISOString(); 
+  return data ?? new Date().toISOString(); // fallback to client if rpc fails
 }
 
+// Store timestamps as UTC (toISOString). Display is converted to Manila time separately.
+
+// Returns today's session row for the user, or null if none exists.
+// Uses created_at within the past 24h to avoid any date/timezone mismatch
+// between client-supplied date strings and the DB's UTC CURRENT_DATE.
 export async function getTodaySession(userId) {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
@@ -108,6 +117,17 @@ function capturePhoto(video) {
 }
 
 /* REGISTER FACE */
+// Average multiple Float32Array descriptors into one for a more stable template
+function averageDescriptors(descriptors) {
+  const len = descriptors[0].length;
+  const avg = new Float32Array(len);
+  for (const d of descriptors)
+    for (let i = 0; i < len; i++) avg[i] += d[i] / descriptors.length;
+  return avg;
+}
+
+const REGISTER_SAMPLES = 3; // number of captures to average
+
 async function registerFace() {
   if (!modelsLoaded) { showFaceStatus("Models are still loading, please wait…", true); return; }
 
@@ -123,15 +143,29 @@ async function registerFace() {
     showFaceStatus('Camera not ready. Click "Start Camera" first.', true); return;
   }
 
-  showFaceStatus("Detecting face…");
+  // Collect REGISTER_SAMPLES descriptors with short pauses between captures
+  const samples = [];
+  for (let i = 0; i < REGISTER_SAMPLES; i++) {
+    showFaceStatus(`Capturing sample ${i + 1} of ${REGISTER_SAMPLES} — hold still…`);
+    // Small delay so each sample is slightly different (natural micro-movements)
+    await new Promise(r => setTimeout(r, 400));
+    const det = await faceapi
+      .detectSingleFace(video, getOpts())
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+    if (!det) {
+      showFaceStatus(`Sample ${i + 1} failed — no face detected. Try again.`, true);
+      return;
+    }
+    samples.push(det.descriptor);
+  }
 
-  const detection = await faceapi
-    .detectSingleFace(video, getOpts())
-    .withFaceLandmarks()
-    .withFaceDescriptor();
+  // Average all samples into one stable descriptor
+  const avgDescriptor = averageDescriptors(samples);
 
-  if (!detection) { showFaceStatus("No face detected. Ensure good lighting and face the camera.", true); return; }
-  if (isDuplicateFace(detection.descriptor)) { showFaceStatus("This face is already registered.", true); return; }
+  if (isDuplicateFace(avgDescriptor)) {
+    showFaceStatus("This face is already registered.", true); return;
+  }
 
   let user;
 
@@ -157,14 +191,14 @@ async function registerFace() {
 
   const { error: imgError } = await supabase.from("face_images").insert({
     user_id:    user.id,
-    descriptor: Array.from(detection.descriptor),
+    descriptor: Array.from(avgDescriptor), // store averaged descriptor
     photo,
   });
   if (imgError) { showFaceStatus("Failed to save face image: " + imgError.message, true); return; }
 
   showProfile(user, photo);
   await loadRegisteredUsers();
-  showFaceStatus("Face registered successfully ✓", false);
+  showFaceStatus(`Face registered successfully ✓ (${REGISTER_SAMPLES} samples averaged)`, false);
 }
 
 /* MARK ATTENDANCE (Time In / Time Out) */
@@ -186,15 +220,41 @@ async function markAttendance() {
 
   if (!detection) { hideProfile(); showFaceStatus("No face detected. Please try again.", true); return; }
 
+  // ── Strict threshold: 0.42 rejects similar-looking faces that 0.6 would pass ──
+  const MATCH_THRESHOLD = 0.5;
   const matcher = new faceapi.FaceMatcher(
     registeredUsers.map(u => new faceapi.LabeledFaceDescriptors(u.student_id, u.descriptors)),
-    0.6
+    MATCH_THRESHOLD
   );
-  const match = matcher.findBestMatch(detection.descriptor);
+  const match1 = matcher.findBestMatch(detection.descriptor);
 
-  if (match.label === "unknown") { hideProfile(); showFaceStatus("Face not recognised. Please register first.", true); return; }
+  if (match1.label === "unknown") { hideProfile(); showFaceStatus("Face not recognised. Please register first.", true); return; }
 
-  const user = registeredUsers.find(u => u.student_id === match.label);
+  // ── Double-scan confirmation: take a second reading 600ms later ──
+  showFaceStatus("Hold still — confirming identity…");
+  await new Promise(r => setTimeout(r, 600));
+
+  const det2 = await faceapi.detectSingleFace(video, getOpts()).withFaceLandmarks().withFaceDescriptor();
+  if (!det2) { hideProfile(); showFaceStatus("Confirmation scan failed. Please try again.", true); return; }
+
+  const match2 = matcher.findBestMatch(det2.descriptor);
+
+  // Both scans must agree on the same person
+  if (match2.label !== match1.label || match2.label === "unknown") {
+    hideProfile();
+    showFaceStatus("Identity could not be confirmed. Please try again.", true);
+    return;
+  }
+
+  // Both distances must be below threshold (average them for extra confidence)
+  const avgDistance = (match1.distance + match2.distance) / 2;
+  if (avgDistance > MATCH_THRESHOLD) {
+    hideProfile();
+    showFaceStatus("Face similarity too low. Please try again in better lighting.", true);
+    return;
+  }
+
+  const user = registeredUsers.find(u => u.student_id === match1.label);
   if (!user) { showFaceStatus("Matched user not found in local data.", true); return; }
 
   // Verify face belongs to the logged-in student
@@ -261,6 +321,7 @@ function showFaceStatus(msg, isError = false) {
   el.style.display = "block";
 }
 
+/* ─── DASHBOARD ──────────────────────────────────────────── */
 export async function loadDashboard() {
   const tbody      = document.getElementById("dashboard-body");
   const emptyState = document.getElementById("dashboardEmpty");
@@ -294,6 +355,8 @@ export async function loadDashboard() {
 
   function formatTimePH(ts) {
     if (!ts) return "—";
+    // Supabase timestamptz columns return UTC strings like "2026-02-20T06:02:00+00:00"
+    // Ensure it's treated as UTC by appending Z if no timezone info present
     const normalized = /[Z+\-]\d{2}:?\d{2}$/.test(ts) ? ts : ts + "Z";
     const d = new Date(normalized);
     if (isNaN(d)) return "—";
@@ -307,6 +370,8 @@ export async function loadDashboard() {
 
   tbody.innerHTML = rows.map(row => {
     const name    = userMap[row.user_id]?.full_name ?? "Unknown";
+    // Derive the display date from time_in in Manila timezone (not the stored date column
+    // which uses UTC CURRENT_DATE and can be off by one day before 8 AM UTC / 4 PM Manila)
     const dateStr = row.time_in
       ? (() => {
           const normalized = /[Z+\-]\d{2}:?\d{2}$/.test(row.time_in) ? row.time_in : row.time_in + "Z";
@@ -323,9 +388,9 @@ export async function loadDashboard() {
 
     return `<tr>
       <td>${name}</td>
-      <td>${dateStr}</td>
-      <td>${timeIn}</td>
-      <td>${timeOut}</td>
+      <td data-label="Date">${dateStr}</td>
+      <td data-label="Time In">${timeIn}</td>
+      <td data-label="Time Out">${timeOut}</td>
       <td>${badge}</td>
     </tr>`;
   }).join("");
@@ -346,6 +411,7 @@ document.getElementById("existingStudentBtn")?.addEventListener("click", () => {
   showFaceStatus("Add Face mode active.", false);
 });
 
+/* INIT */
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("registerFaceBtn")?.addEventListener("click", registerFace);
   document.getElementById("attendanceBtn")?.addEventListener("click", markAttendance);
