@@ -1,5 +1,5 @@
 import { supabase } from "./supabase.js";
-import { getAttendanceType } from "./face.js";
+import { getTodaySession } from "./face.js";
 
 function bufferToBase64(buffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)));
@@ -12,6 +12,11 @@ function base64ToBuffer(base64) {
   return bytes.buffer;
 }
 
+// Returns today's date string in PH time (YYYY-MM-DD)
+function todayPH() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+}
+
 export async function registerFingerprint(userId, username) {
   if (!window.PublicKeyCredential) {
     showFingerprintMessage("WebAuthn is not supported in this browser.", true);
@@ -22,29 +27,20 @@ export async function registerFingerprint(userId, username) {
     const credential = await navigator.credentials.create({
       publicKey: {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
-
         rp: {
           name: "Attendance App",
-          id: window.location.hostname,         
+          id: window.location.hostname,
         },
-
-        // Ties the credential to this specific user.
         user: {
-          id: new TextEncoder().encode(String(userId)), // must be a BufferSource
+          id: new TextEncoder().encode(String(userId)),
           name: username,
           displayName: username,
         },
-
-        // Only ask for public-key credentials.
         pubKeyCredParams: [
-          { type: "public-key", alg: -7  },   
-          { type: "public-key", alg: -257 },   
+          { type: "public-key", alg: -7  },
+          { type: "public-key", alg: -257 },
         ],
-
-        // "required" forces biometric / PIN on the device.
         userVerification: "required",
-
-        // Prevent registering the same authenticator twice.
         authenticatorSelection: {
           userVerification: "required",
           residentKey: "preferred",
@@ -52,10 +48,8 @@ export async function registerFingerprint(userId, username) {
       },
     });
 
-    // Convert the credential ID to Base64 for storage.
     const credentialIdBase64 = bufferToBase64(credential.rawId);
 
-    // Save it to the user's row in Supabase.
     const { error } = await supabase
       .from("users")
       .update({ credential_id: credentialIdBase64 })
@@ -82,7 +76,7 @@ export async function verifyFingerprint(userId) {
     return false;
   }
 
-  // Fetch the stored credential ID 
+  // Fetch stored credential ID
   const { data: userData, error: fetchUserError } = await supabase
     .from("users")
     .select("credential_id")
@@ -95,14 +89,11 @@ export async function verifyFingerprint(userId) {
   }
 
   if (!userData.credential_id) {
-    showFingerprintMessage(
-      "No fingerprint registered. Please register your fingerprint first.",
-      true
-    );
+    showFingerprintMessage("No fingerprint registered. Please register your fingerprint first.", true);
     return false;
   }
 
-  // Ask device to verify with that credential 
+  // Ask device to verify biometric
   try {
     await navigator.credentials.get({
       publicKey: {
@@ -114,7 +105,6 @@ export async function verifyFingerprint(userId) {
             transports: ["internal", "hybrid"],
           },
         ],
-
         userVerification: "required",
         rpId: window.location.hostname,
       },
@@ -125,41 +115,47 @@ export async function verifyFingerprint(userId) {
     return false;
   }
 
-  // Fingerprint matched – determine TIME IN or TIME OUT
-  const type = await getAttendanceType(userId);
+  // Biometric passed — now handle Time In / Time Out session logic
+  const session = await getTodaySession(userId);
+  const now     = new Date().toISOString();
 
-  // Prevent more than 2 records per day
-  if (type === "TIME OUT") {
-    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
-    const { data: dayRecords } = await supabase.from("attendance").select("id").eq("user_id", userId).gte("created_at", startOfDay.toISOString());
-    if (dayRecords && dayRecords.length >= 2) {
-      showFingerprintMessage("You have already timed in and out today.", false);
+  if (!session) {
+    // ── TIME IN: create a new session row ──
+    const { error } = await supabase.from("attendance").insert({
+      user_id:  userId,
+      date:     todayPH(),
+      time_in:  now,
+    });
+    if (error) {
+      showFingerprintMessage("Error recording Time In: " + error.message, true);
       return false;
     }
-  }
+    showFingerprintMessage("Fingerprint verified — Time In recorded.", false);
 
-  // Insert attendance record 
-  const { error: insertError } = await supabase.from("attendance").insert({
-    user_id: userId,
-    status: type,
-  });
+  } else if (!session.time_out) {
+    // ── TIME OUT: update the existing session row ──
+    const { error } = await supabase
+      .from("attendance")
+      .update({ time_out: now })
+      .eq("id", session.id);
+    if (error) {
+      showFingerprintMessage("Error recording Time Out: " + error.message, true);
+      return false;
+    }
+    showFingerprintMessage("Fingerprint verified — Time Out recorded.", false);
 
-  if (insertError) {
-    showFingerprintMessage("Error recording attendance: " + insertError.message, true);
+  } else {
+    showFingerprintMessage("You have already timed in and out today.", false);
     return false;
   }
 
-  showFingerprintMessage(`Fingerprint verified – ${type} recorded`, false);
   return true;
 }
 
-// UI FEEDBACK
+/* UI FEEDBACK */
 function showFingerprintMessage(msg, isError) {
   const el = document.getElementById("fingerprintMessage");
-  if (!el) {
-    alert(msg);
-    return;
-  }
+  if (!el) { alert(msg); return; }
   el.textContent = msg;
   el.className = `fp-message ${isError ? "error" : "success"}`;
   el.style.display = "block";
