@@ -18,9 +18,23 @@ function getOpts() {
 function getVideo() { return document.getElementById("video"); }
 
 /* EXPORTED HELPERS */
+// Returns "TIME IN" if no record exists today, "TIME OUT" if one already does.
+export async function getAttendanceType(userId) {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const { data: existing } = await supabase
+    .from("attendance")
+    .select("id")
+    .eq("user_id", userId)
+    .gte("timestamp", startOfDay.toISOString());
+
+  return existing && existing.length > 0 ? "TIME OUT" : "TIME IN";
+}
+
+// Kept for backward-compat; no longer used internally
 export function getAttendanceStatus(date = new Date()) {
-  const h = date.getHours(), m = date.getMinutes();
-  return h < 8 || (h === 8 && m === 0) ? "ON TIME" : "LATE";
+  return "TIME IN";
 }
 
 /* LOAD MODELS */
@@ -181,15 +195,23 @@ async function markAttendance() {
     return;
   }
 
-  const status = getAttendanceStatus(new Date());
+  const type = await getAttendanceType(user.id);
 
-  const { error } = await supabase.from("attendance").insert({ user_id: user.id, status });
+  // Prevent duplicate TIME OUT (only allow up to 2 records per day)
+  if (type === "TIME OUT") {
+    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+    const { data: dayRecords } = await supabase.from("attendance").select("id").eq("user_id", user.id).gte("timestamp", startOfDay.toISOString());
+    if (dayRecords && dayRecords.length >= 2) {
+      showFaceStatus("You have already timed in and out today.", false); return;
+    }
+  }
 
-  if (error?.code === "23505") { showFaceStatus("Attendance already marked for today.", false); return; }
+  const { error } = await supabase.from("attendance").insert({ user_id: user.id, status: type });
+
   if (error) { showFaceStatus("Error recording attendance: " + error.message, true); return; }
 
   showProfile(user);
-  showFaceStatus(`Attendance marked — ${user.name} (${status})`, false);
+  showFaceStatus(`${type} recorded — ${user.name}`, false);
   loadDashboard();
 }
 
@@ -261,11 +283,11 @@ const timePH = date && !isNaN(date)
     })
   : "—";
     const name   = userMap[row.user_id]?.full_name ?? "Unknown";
-    const isLate = row.status === "LATE";
+    const isOut  = row.status === "TIME OUT";
     return `<tr>
       <td>${name}</td>
       <td>${timePH}</td>
-      <td><span class="badge ${isLate ? "badge-late" : "badge-ontime"}">${row.status ?? "—"}</span></td>
+      <td><span class="badge ${isOut ? "badge-late" : "badge-ontime"}">${row.status ?? "—"}</span></td>
     </tr>`;
   }).join("");
 }
