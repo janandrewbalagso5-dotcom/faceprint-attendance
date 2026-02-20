@@ -441,18 +441,7 @@
     /*  LOGOUT  */
     document.getElementById("logoutBtn").addEventListener("click", () => {
       sessionStorage.removeItem("currentUser");
-
-      video.className = "video-hidden";
-      document.body.appendChild(video);
-
-      const overlay = document.getElementById("scanOverlay");
-      if (overlay) overlay.style.display = "none";
-
-      document.getElementById("authUsername").value = "";
-      document.getElementById("authPassword").value = "";
-      document.getElementById("appSection").style.display = "none";
-      document.getElementById("authSection").style.display = "flex";
-      clearMessage();
+      window.location.reload();
     });
 
     /*  INIT APP  */
