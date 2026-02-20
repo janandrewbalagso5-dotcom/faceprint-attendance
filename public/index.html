@@ -394,7 +394,7 @@
       initApp(data);
     });
 
-    /*  SIGN UP  */
+ /*  SIGN UP  */
     document.getElementById("signupBtn").addEventListener("click", async () => {
       const username  = document.getElementById("authUsernameReg").value.trim();
       const password  = document.getElementById("authPasswordReg").value;
@@ -405,6 +405,12 @@
 
       if (!username || !password || !studentId || !fullName || !major) { showMessage("Please fill in all fields.", true); return; }
       if (password.length < 6) { showMessage("Password must be at least 6 characters.", true); return; }
+
+      // Validate Student ID format: digits-digits-digits (e.g. 231-08-0001)
+      const studentIdPattern = /^\d{3}-\d{2}-\d{4}$/;
+      if (!studentIdPattern.test(studentId)) {
+        showMessage("Student ID must follow the format: 231-08-0001", true); return;
+      }
       setLoading(btn, true, "Create Account");
 
       const { data: existing } = await supabase.from("users").select("id").eq("username", username).maybeSingle();
@@ -789,3 +795,4 @@
 
 </body>
 </html>
+
