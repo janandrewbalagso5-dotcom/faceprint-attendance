@@ -7,34 +7,40 @@ let registrationMode = "new";
 
 const MODEL_URL = "https://justadudewhohacks.github.io/face-api.js/models";
 
-// faceapi CDN must finish loading before first use
 let _opts = null;
 function getOpts() {
   if (!_opts) _opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
   return _opts;
 }
 
-// Always fetch fresh
 function getVideo() { return document.getElementById("video"); }
 
-/* EXPORTED HELPERS */
-// Returns "TIME IN" if no record exists today, "TIME OUT" if one already does.
-export async function getAttendanceType(userId) {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+/* ─── ATTENDANCE SESSION HELPERS ─────────────────────────── */
 
-  const { data: existing } = await supabase
-    .from("attendance")
-    .select("id")
-    .eq("user_id", userId)
-    .gte("timestamp", startOfDay.toISOString());
-
-  return existing && existing.length > 0 ? "TIME OUT" : "TIME IN";
+// Returns today's date string in PH time (YYYY-MM-DD) for the date column
+function todayPH() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 }
 
-// Kept for backward-compat; no longer used internally
-export function getAttendanceStatus(date = new Date()) {
-  return "TIME IN";
+// Returns the existing session row for today, or null
+export async function getTodaySession(userId) {
+  const { data, error } = await supabase
+    .from("attendance")
+    .select("id, time_in, time_out")
+    .eq("user_id", userId)
+    .eq("date", todayPH())
+    .maybeSingle();
+
+  if (error) { console.error("getTodaySession error:", error); return null; }
+  return data;
+}
+
+// "TIME IN" if no session yet, "TIME OUT" if session has no time_out, "DONE" if complete
+export async function getAttendanceType(userId) {
+  const session = await getTodaySession(userId);
+  if (!session)          return "TIME IN";
+  if (!session.time_out) return "TIME OUT";
+  return "DONE";
 }
 
 /* LOAD MODELS */
@@ -46,7 +52,7 @@ async function loadModels() {
       faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
     ]);
     modelsLoaded = true;
-    console.log("✅ Face-api models loaded");
+    console.log("Face-api models loaded");
     await loadRegisteredUsers();
   } catch (err) {
     console.error("Model load error:", err);
@@ -110,7 +116,7 @@ async function registerFace() {
     showFaceStatus("Please complete all fields before registering.", true); return;
   }
   if (!video?.srcObject) {
-    showFaceStatus("Camera not ready. Click \"Start Camera\" first.", true); return;
+    showFaceStatus('Camera not ready. Click "Start Camera" first.', true); return;
   }
 
   showFaceStatus("Detecting face…");
@@ -135,10 +141,10 @@ async function registerFace() {
     user = { ...data, name: data.full_name };
   } else {
     const { data, error } = await supabase
-  .from("users")
-  .insert({ student_id: studentId, full_name: name, major, username: studentId })
-  .select("id, student_id, full_name, major")
-  .single();
+      .from("users")
+      .insert({ student_id: studentId, full_name: name, major, username: studentId })
+      .select("id, student_id, full_name, major")
+      .single();
     if (error) { showFaceStatus("Registration error: " + error.message, true); return; }
     user = { ...data, name: data.full_name };
   }
@@ -157,14 +163,14 @@ async function registerFace() {
   showFaceStatus("Face registered successfully ✓", false);
 }
 
-/* MARK ATTENDANCE */
+/* MARK ATTENDANCE (Time In / Time Out) */
 async function markAttendance() {
   if (!modelsLoaded) { showFaceStatus("Models are still loading, please wait…", true); return; }
   if (registeredUsers.length === 0) { showFaceStatus("No registered faces found.", true); return; }
 
   const video = getVideo();
   if (!video?.srcObject) {
-    showFaceStatus("Camera not ready. Click \"Start Camera\" first.", true); return;
+    showFaceStatus('Camera not ready. Click "Start Camera" first.', true); return;
   }
 
   showFaceStatus("Scanning face…");
@@ -187,7 +193,7 @@ async function markAttendance() {
   const user = registeredUsers.find(u => u.student_id === match.label);
   if (!user) { showFaceStatus("Matched user not found in local data.", true); return; }
 
-  // Verify the recognised face belongs to the currently logged-in student
+  // Verify face belongs to the logged-in student
   const currentUser = JSON.parse(sessionStorage.getItem("currentUser") || "null");
   if (!currentUser || user.student_id !== currentUser.student_id) {
     hideProfile();
@@ -195,23 +201,34 @@ async function markAttendance() {
     return;
   }
 
-  const type = await getAttendanceType(user.id);
+  const session = await getTodaySession(user.id);
+  const now     = new Date().toISOString();
 
-  // Prevent duplicate TIME OUT (only allow up to 2 records per day)
-  if (type === "TIME OUT") {
-    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
-    const { data: dayRecords } = await supabase.from("attendance").select("id").eq("user_id", user.id).gte("timestamp", startOfDay.toISOString());
-    if (dayRecords && dayRecords.length >= 2) {
-      showFaceStatus("You have already timed in and out today.", false); return;
-    }
+  if (!session) {
+    // ── TIME IN: create a new session row ──
+    const { error } = await supabase.from("attendance").insert({
+      user_id:  user.id,
+      date:     todayPH(),
+      time_in:  now,
+    });
+    if (error) { showFaceStatus("Error recording Time In: " + error.message, true); return; }
+    showFaceStatus(`Time In recorded — ${user.name}`, false);
+
+  } else if (!session.time_out) {
+    // ── TIME OUT: update the existing session row ──
+    const { error } = await supabase
+      .from("attendance")
+      .update({ time_out: now })
+      .eq("id", session.id);
+    if (error) { showFaceStatus("Error recording Time Out: " + error.message, true); return; }
+    showFaceStatus(`Time Out recorded — ${user.name}`, false);
+
+  } else {
+    showFaceStatus("You have already timed in and out today.", false);
+    return;
   }
 
-  const { error } = await supabase.from("attendance").insert({ user_id: user.id, status: type });
-
-  if (error) { showFaceStatus("Error recording attendance: " + error.message, true); return; }
-
   showProfile(user);
-  showFaceStatus(`${type} recorded — ${user.name}`, false);
   loadDashboard();
 }
 
@@ -242,22 +259,23 @@ function showFaceStatus(msg, isError = false) {
   el.style.display = "block";
 }
 
-/* DASHBOARD */
+/* ─── DASHBOARD ──────────────────────────────────────────── */
 export async function loadDashboard() {
   const tbody      = document.getElementById("dashboard-body");
   const emptyState = document.getElementById("dashboardEmpty");
   if (!tbody) return;
 
-  tbody.innerHTML = `<tr><td colspan="3" class="loading-row">Loading…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="5" class="loading-row">Loading…</td></tr>`;
 
   const { data: rows, error } = await supabase
     .from("attendance")
-    .select("user_id, timestamp, status")
-    .order("timestamp", { ascending: false })
+    .select("user_id, date, time_in, time_out")
+    .order("date",    { ascending: false })
+    .order("time_in", { ascending: false })
     .limit(50);
 
   if (error) {
-    tbody.innerHTML = `<tr><td colspan="3" class="error-row">Failed to load data.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="error-row">Failed to load data.</td></tr>`;
     return;
   }
 
@@ -273,21 +291,32 @@ export async function loadDashboard() {
 
   if (emptyState) emptyState.style.display = "none";
 
-  tbody.innerHTML = rows.map(row => {
-const raw = row.timestamp ?? null;
-const date   = raw ? new Date(raw) : null;
-const timePH = date && !isNaN(date)
-  ? date.toLocaleString("en-PH", {
-      timeZone: "Asia/Manila", year: "numeric", month: "short",
+  function formatTimePH(ts) {
+    if (!ts) return "—";
+    const d = new Date(ts);
+    return isNaN(d) ? "—" : d.toLocaleString("en-PH", {
+      timeZone: "Asia/Manila", month: "short",
       day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: true,
-    })
-  : "—";
-    const name   = userMap[row.user_id]?.full_name ?? "Unknown";
-    const isOut  = row.status === "TIME OUT";
+    });
+  }
+
+  tbody.innerHTML = rows.map(row => {
+    const name    = userMap[row.user_id]?.full_name ?? "Unknown";
+    const dateStr = row.date
+      ? new Date(row.date + "T00:00:00").toLocaleDateString("en-PH", { month: "short", day: "2-digit", year: "numeric" })
+      : "—";
+    const timeIn  = formatTimePH(row.time_in);
+    const timeOut = formatTimePH(row.time_out);
+    const badge   = row.time_out
+      ? `<span class="badge badge-ontime">Complete</span>`
+      : `<span class="badge badge-late">Pending Out</span>`;
+
     return `<tr>
       <td>${name}</td>
-      <td>${timePH}</td>
-      <td><span class="badge ${isOut ? "badge-late" : "badge-ontime"}">${row.status ?? "—"}</span></td>
+      <td>${dateStr}</td>
+      <td>${timeIn}</td>
+      <td>${timeOut}</td>
+      <td>${badge}</td>
     </tr>`;
   }).join("");
 }
