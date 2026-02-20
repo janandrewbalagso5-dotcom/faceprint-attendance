@@ -12,23 +12,17 @@ function base64ToBuffer(base64) {
   return bytes.buffer;
 }
 
-// Returns today's date string in PH time (YYYY-MM-DD)
 function todayPH() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 }
 
-/**
- * WebAuthn requires a real registered domain as the rpId.
- * localhost, 127.0.0.1, and plain IPs are rejected by desktop browsers.
- * When running locally we omit rpId so the browser uses its own safe default.
- */
 function getRpId() {
   const hostname = window.location.hostname;
   const isLocal =
     hostname === "localhost" ||
     hostname === "127.0.0.1" ||
     hostname === "" ||
-    /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname); // any raw IP address
+    /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
   return isLocal ? undefined : hostname;
 }
 
@@ -46,7 +40,6 @@ export async function registerFingerprint(userId, username) {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         rp: {
           name: "Attendance App",
-          // Only include id when we have a real domain; omit for localhost/IP
           ...(rpId ? { id: rpId } : {}),
         },
         user: {
@@ -55,8 +48,8 @@ export async function registerFingerprint(userId, username) {
           displayName: username,
         },
         pubKeyCredParams: [
-          { type: "public-key", alg: -7   }, // ES256
-          { type: "public-key", alg: -257 }, // RS256
+          { type: "public-key", alg: -7   }, 
+          { type: "public-key", alg: -257 }, 
         ],
         userVerification: "required",
         authenticatorSelection: {
