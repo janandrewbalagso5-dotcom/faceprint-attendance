@@ -1,5 +1,5 @@
 import { supabase } from "./supabase.js";
-import { getAttendanceStatus } from "./face.js";
+import { getAttendanceType } from "./face.js";
 
 function bufferToBase64(buffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)));
@@ -125,32 +125,23 @@ export async function verifyFingerprint(userId) {
     return false;
   }
 
-  // Fingerprint matched – check duplicate attendance
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  // Fingerprint matched – determine TIME IN or TIME OUT
+  const type = await getAttendanceType(userId);
 
-  const { data: existing, error: fetchError } = await supabase
-    .from("attendance")
-    .select("id")
-    .eq("user_id", userId)
-    .gte("created_at", startOfDay.toISOString());
-
-  if (fetchError) {
-    showFingerprintMessage("Error checking attendance: " + fetchError.message, true);
-    return false;
-  }
-
-  if (existing && existing.length > 0) {
-    showFingerprintMessage("Attendance already recorded for today.", false);
-    return false;
+  // Prevent more than 2 records per day
+  if (type === "TIME OUT") {
+    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+    const { data: dayRecords } = await supabase.from("attendance").select("id").eq("user_id", userId).gte("created_at", startOfDay.toISOString());
+    if (dayRecords && dayRecords.length >= 2) {
+      showFingerprintMessage("You have already timed in and out today.", false);
+      return false;
+    }
   }
 
   // Insert attendance record 
-  const status = getAttendanceStatus(new Date());
-
   const { error: insertError } = await supabase.from("attendance").insert({
     user_id: userId,
-    status,
+    status: type,
   });
 
   if (insertError) {
@@ -158,7 +149,7 @@ export async function verifyFingerprint(userId) {
     return false;
   }
 
-  showFingerprintMessage(`Fingerprint verified – marked ${status}`, false);
+  showFingerprintMessage(`Fingerprint verified – ${type} recorded`, false);
   return true;
 }
 
