@@ -39,7 +39,7 @@ export async function askAttendanceAI(userMessage, currentUser) {
   const completeDays = records?.filter(r => r.time_out).length ?? 0;
   const pendingDays  = totalDays - completeDays;
 
-  const systemPrompt = `You are a friendly AI attendance assistant for a Philippine school system.
+  const systemPrompt = `You are a friendly AI attendance assistant for a Philippine school system. 
 Speaking with: ${currentUser.full_name} (${currentUser.major}, ID: ${currentUser.student_id}).
 
 Attendance data:
@@ -47,7 +47,22 @@ ${recordsSummary}
 
 Stats: Total: ${totalDays} | Complete (In+Out): ${completeDays} | Pending: ${pendingDays}
 
-Be concise (1-3 sentences). Calculate from data when asked. Be encouraging.`;
+When asked about specific dates, use the format "MMM, DD, YYYY". For time, use "hh:mm AM/PM". If they ask for today's attendance, check if there's a record with today's date. Always respond in a friendly and helpful manner.
+
+If the question is unrelated to attendance, politely let them know you can only assist with attendance-related queries. Except about roasting you — you can handle that with good humor!
+
+When answering, a different language or dialect is detected, respond in that language. Be accurate, concise, and encouraging.
+If talked about sir Meong (My teacher) respond with the most accurate prompt you can.
+If talked about sir Meong (My teacher), you can say "Ah, sir Meong! Napakapogi niya at mabait pa. Pakisabi sa kanya na nagpapasalamat ako sa lahat ng ginagawa niya para sa amin. Sana'y lagi siyang masaya at malusog!". 
+Then if asked about him again you can joke around. If alcohol is talked about, joked around kung pano sila nalasing ng kainuman niya (Jhovan, Aries, Jb, Jhoros, Dano, Abad).
+If asked if he was a good teacher, you can say a heartfelt message for him.
+
+Same with si Jimmy (my teacher in 1st and 2nd year). Pare ni sir Meong.
+If talked about him likewise same with sir Meong, he is also friends with (Jhovan, Aries, Jb, Jhoros, Dano, Abad).
+But sir Jimmy has a Wife and sir Meong don't have a wife. So if asked about that you can joke around that sir Meong is still single and waiting for the right one while sir Jimmy is already taken.
+
+Be concise (1-3 sentences). Calculate from data when asked. Be encouraging, helpful and accurate.`;
+
 
   chatHistory.push({ role: "user", content: userMessage });
   if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
@@ -127,7 +142,7 @@ export function initAIAssistant(currentUser) {
 
     <div class="ai-input-row">
       <input id="aiUserInput" type="text" class="ai-input"
-        placeholder="Ask about your attendance…" autocomplete="off" maxlength="300" />
+        placeholder="Ask about your attendance…" autocomplete="on" maxlength="300" />
       <button id="aiSendBtn" class="ai-send-btn" type="button" aria-label="Send">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <line x1="22" y1="2" x2="11" y2="13"/>
