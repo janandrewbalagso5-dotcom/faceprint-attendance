@@ -12,198 +12,6 @@
   <!-- Face API CDN -->
   <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
-  <!-- AI Assistant Styles -->
-  <style>
-    /* ── Floating launcher button ── */
-    #aiLaunchBtn {
-      position: fixed;
-      bottom: 28px;
-      right: 28px;
-      z-index: 1000;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 4px 20px rgba(37,99,235,0.45);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      color: #fff;
-    }
-    #aiLaunchBtn:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(37,99,235,0.55); }
-    #aiLaunchBtn:active { transform: scale(0.95); }
-
-    /* ── Popup window ── */
-    #aiPopup {
-      position: fixed;
-      bottom: 96px;
-      right: 28px;
-      z-index: 999;
-      width: 360px;
-      max-height: 540px;
-      background: #fff;
-      border-radius: 20px;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
-      display: none;
-      flex-direction: column;
-      overflow: hidden;
-      transform-origin: bottom right;
-    }
-    #aiPopup.ai-popup-open {
-      display: flex;
-      animation: aiPopupIn 0.25s cubic-bezier(0.34,1.56,0.64,1) both;
-    }
-    #aiPopup.ai-popup-closing {
-      display: flex;
-      animation: aiPopupOut 0.18s ease both;
-    }
-    @keyframes aiPopupIn {
-      from { opacity: 0; transform: scale(0.75) translateY(20px); }
-      to   { opacity: 1; transform: scale(1) translateY(0); }
-    }
-    @keyframes aiPopupOut {
-      from { opacity: 1; transform: scale(1) translateY(0); }
-      to   { opacity: 0; transform: scale(0.75) translateY(20px); }
-    }
-
-    /* ── Popup header ── */
-    .ai-popup-header {
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      padding: 14px 16px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-    .ai-popup-avatar {
-      width: 36px; height: 36px; border-radius: 50%;
-      background: rgba(255,255,255,0.25);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1rem; flex-shrink: 0;
-    }
-    .ai-popup-info { flex: 1; }
-    .ai-popup-name {
-      font-family: var(--font-display);
-      font-size: 0.95rem; font-weight: 700; color: #fff; line-height: 1.2;
-    }
-    .ai-popup-status {
-      font-size: 0.72rem; color: rgba(255,255,255,0.8);
-      display: flex; align-items: center; gap: 4px;
-    }
-    .ai-popup-status::before {
-      content: ""; width: 6px; height: 6px; border-radius: 50%;
-      background: #4ade80; display: inline-block;
-    }
-    .ai-popup-close {
-      background: rgba(255,255,255,0.15); border: none; color: #fff;
-      width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
-      font-size: 1rem; display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s; flex-shrink: 0;
-    }
-    .ai-popup-close:hover { background: rgba(255,255,255,0.28); }
-
-    /* ── Chat history ── */
-    .ai-chat-history {
-      flex: 1; overflow-y: auto;
-      padding: 14px 12px;
-      display: flex; flex-direction: column; gap: 8px;
-      background: #f5f6f8;
-      scrollbar-width: thin; scrollbar-color: #ddd transparent;
-    }
-
-    /* ── Bubbles ── */
-    .ai-bubble {
-      display: flex; align-items: flex-end; gap: 6px;
-      animation: aiBubbleIn 0.2s ease both;
-    }
-    @keyframes aiBubbleIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .ai-bubble-user { flex-direction: row-reverse; }
-    .ai-avatar {
-      flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      color: #fff; font-size: 0.7rem;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; margin-bottom: 2px;
-    }
-    .ai-bubble-text {
-      font-size: 0.875rem; line-height: 1.5;
-      padding: 9px 13px; max-width: 78%; word-break: break-word;
-    }
-    .ai-bubble-bot .ai-bubble-text {
-      background: #fff; color: #111318;
-      border-radius: 4px 18px 18px 18px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    .ai-bubble-user .ai-bubble-text {
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      color: #fff; border-radius: 18px 4px 18px 18px;
-    }
-
-    /* ── Typing dots ── */
-    .ai-typing { display: flex; align-items: center; gap: 4px; padding: 11px 15px; }
-    .ai-typing span {
-      width: 7px; height: 7px; border-radius: 50%; background: #9aa2b0;
-      animation: aiDot 1.2s ease-in-out infinite;
-    }
-    .ai-typing span:nth-child(2) { animation-delay: 0.2s; }
-    .ai-typing span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes aiDot {
-      0%, 80%, 100% { transform: scale(0.65); opacity: 0.4; }
-      40%            { transform: scale(1); opacity: 1; }
-    }
-
-    /* ── Suggestion chips ── */
-    .ai-suggestions {
-      display: flex; flex-wrap: wrap; gap: 6px;
-      padding: 0 12px 10px; background: #f5f6f8;
-    }
-    .ai-suggestion-chip {
-      font-family: var(--font-body); font-size: 0.76rem;
-      color: #2563eb; background: #fff;
-      border: 1px solid #dbeafe; border-radius: 99px;
-      padding: 5px 12px; cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-      white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    }
-    .ai-suggestion-chip:hover { background: #eff6ff; border-color: #2563eb; }
-
-    /* ── Input area ── */
-    .ai-input-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 12px; background: #fff;
-      border-top: 1px solid #e2e5ea; flex-shrink: 0;
-    }
-    .ai-input {
-      flex: 1; padding: 9px 14px;
-      border: 1px solid #e2e5ea; border-radius: 99px;
-      background: #f5f6f8; color: #111318;
-      font-family: var(--font-body); font-size: 0.875rem;
-      outline: none; transition: border-color 0.18s, box-shadow 0.18s;
-    }
-    .ai-input:focus { border-color: #2563eb; background: #fff; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-    .ai-input:disabled { opacity: 0.6; cursor: not-allowed; }
-    .ai-send-btn {
-      width: 36px; height: 36px; border-radius: 50%;
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      border: none; color: #fff; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; transition: transform 0.15s, opacity 0.15s; padding: 0;
-    }
-    .ai-send-btn:hover  { transform: scale(1.08); }
-    .ai-send-btn:active { transform: scale(0.93); }
-    .ai-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    @media (max-width: 480px) {
-      #aiPopup { width: calc(100vw - 24px); right: 12px; bottom: 84px; }
-      #aiLaunchBtn { right: 16px; bottom: 16px; }
-    }
-  </style>
 </head>
 
 <body>
@@ -217,7 +25,7 @@
 
   <!-- AUTH SECTION -->
   <div id="authSection" class="auth-wrapper">
-    <div class="auth-card">
+    <div class="auth-card signup-wide">
 
       <!-- Brand -->
       <div class="brand">
@@ -249,15 +57,49 @@
 
       <!-- ── LOGIN PANEL ── -->
       <div id="panelLogin" class="tab-panel active" role="tabpanel">
-        <div class="field-group">
-          <label for="authUsername">Username</label>
-          <input id="authUsername" type="text" placeholder="username" autocomplete="username" />
+        <div class="signup-two-col">
+
+          <!-- Left: Account fields -->
+          <div class="signup-fields">
+            <div class="field-row">
+              <div class="field-group">
+                <label for="authUsername">Username</label>
+                <input id="authUsername" type="text" placeholder="username" autocomplete="username" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="authPassword">Password</label>
+                <input id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password" />
+              </div>
+            </div>
+            <button id="loginBtn" class="btn btn-primary" type="button" style="width:100%;margin-top:6px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              Login
+            </button>
+          </div>
+
+          <!-- Right: Face Login -->
+          <div class="signup-face">
+            <div class="signup-face-label">Face Login <span class="face-optional">(required)</span></div>
+            <div class="camera-wrap signup-camera-wrap" id="logCameraWrap">
+              <div class="camera-placeholder" id="logCameraPlaceholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+                  <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+                </svg>
+                <p id="logCameraPlaceholderMsg">Camera not started</p>
+                <button id="logStartCameraBtn" class="btn btn-secondary" type="button" style="margin-top:6px;font-size:0.8rem;padding:7px 14px;">
+                  ▶ Start Camera
+                </button>
+              </div>
+              <div class="camera-overlay" aria-hidden="true" id="logScanOverlay" style="display:none;">
+                <canvas id="logScanCanvas" class="log-scan-canvas"></canvas>
+              </div>
+            </div>
+            <div id="logFaceStatus" class="face-status" style="display:none;margin-top:8px;"></div>
+          </div>
+
         </div>
-        <div class="field-group">
-          <label for="authPassword">Password</label>
-          <input id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password" />
-        </div>
-        <button id="loginBtn" class="btn btn-primary" type="button">Login</button>
       </div>
 
       <!-- ── SIGNUP PANEL ── -->
@@ -303,7 +145,7 @@
 
           <!-- Right: Face Registration -->
           <div class="signup-face">
-            <div class="signup-face-label">Face Registration <span class="face-optional">(optional)</span></div>
+            <div class="signup-face-label">Face Registration <span class="face-optional">(required)</span></div>
             <div class="camera-wrap signup-camera-wrap" id="regCameraWrap">
               <div class="camera-placeholder" id="regCameraPlaceholder">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
@@ -373,7 +215,6 @@
             </div>
           </div>
         </div>
-
 
         <!-- Fingerprint Setup -->
         <div class="card" id="fingerprintSetupCard">
@@ -552,9 +393,9 @@
         const panel = document.getElementById(t.getAttribute("aria-controls"));
         if (panel) panel.classList.toggle("active", isActive);
       });
-      // Widen card for signup
+      // Both login and signup use two-column layout — keep card wide always
       const authCard = document.querySelector(".auth-card");
-      if (authCard) authCard.classList.toggle("signup-wide", activeTab === tabSignup);
+      if (authCard) authCard.classList.add("signup-wide");
       clearMessage();
     }
     tabLogin.addEventListener("click",  () => activateTab(tabLogin));
@@ -591,17 +432,124 @@
     }
 
     /*  LOGIN  */
+    // Stores verified user data after password check, waiting for face confirmation
+    let _pendingLoginUser = null;
+
     document.getElementById("loginBtn").addEventListener("click", async () => {
       const username = document.getElementById("authUsername").value.trim();
       const password = document.getElementById("authPassword").value;
-      const btn = document.getElementById("loginBtn");
+      const btn      = document.getElementById("loginBtn");
+      const statusEl = document.getElementById("logFaceStatus");
+
+      function showLoginFaceStatus(msg, type = "info") {
+        if (!statusEl) return;
+        statusEl.textContent   = msg;
+        statusEl.className     = `face-status ${type}`;
+        statusEl.style.display = "block";
+      }
+
       if (!username || !password) { showMessage("Enter your username and password.", true); return; }
-      setLoading(btn, true, "Login");
-      const { data, error } = await supabase.from("users").select("*").eq("username", username).maybeSingle();
+
+      // ── STEP 1: Validate credentials (skip DB if already verified this session) ──
+      let userData = _pendingLoginUser && _pendingLoginUser.username === username ? _pendingLoginUser : null;
+
+      if (!userData) {
+        setLoading(btn, true, "Verifying…");
+        const { data, error } = await supabase.from("users").select("*").eq("username", username).maybeSingle();
+        setLoading(btn, false, "Login");
+
+        if (error || !data || data.password !== password) {
+          showMessage("Invalid username or password.", true);
+          _pendingLoginUser = null;
+          return;
+        }
+        userData = data;
+      }
+      const data = userData;
+
+      // ── STEP 2: Check face camera is active ──
+      const logVideo = document.getElementById("logVideo");
+      if (!logVideo?.srcObject) {
+        showMessage("Credentials verified ✓ — now start the camera and verify your face to log in.", false);
+        showLoginFaceStatus("Start the camera above, then click Login again.", "info");
+        _pendingLoginUser = data; // hold credentials until face passes
+        return;
+      }
+
+      // ── STEP 3: Face recognition ──
+      if (typeof faceapi === "undefined" || !faceapi.nets.tinyFaceDetector.isLoaded) {
+        logStatusFrozenUntil = performance.now() + 3000;
+        showLoginFaceStatus("Face models still loading — please wait a moment and try again.", "error");
+        _pendingLoginUser = data;
+        return;
+      }
+
+      if (!logFaceDetected) {
+        logStatusFrozenUntil = performance.now() + 3000;
+        showLoginFaceStatus("No face detected in frame. Position your face and try again.", "error");
+        _pendingLoginUser = data;
+        return;
+      }
+
+      showLoginFaceStatus("Scanning face…", "info");
+      setLoading(btn, true, "Verifying face…");
+
+      // Pause live scan while capturing
+      if (logScanLoop) { cancelAnimationFrame(logScanLoop); logScanLoop = null; }
+
+      const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+      const detection = await faceapi.detectSingleFace(logVideo, opts).withFaceLandmarks().withFaceDescriptor();
+
+      if (!detection) {
+        logStatusFrozenUntil = performance.now() + 3000;
+        showLoginFaceStatus("Face capture failed. Try again.", "error");
+        setLoading(btn, false, "Login");
+        _pendingLoginUser = data;
+        setTimeout(() => startLogScan(logVideo), 3000);
+        return;
+      }
+
+      // Fetch face descriptors for this specific user
+      const { data: faces } = await supabase.from("face_images").select("descriptor").eq("user_id", data.id);
+
+      if (!faces || faces.length === 0) {
+        // No face registered — allow login but warn
+        showLoginFaceStatus("⚠ No face registered for this account. Please register your face after login.", "info");
+        await new Promise(r => setTimeout(r, 1800));
+        sessionStorage.setItem("currentUser", JSON.stringify(data));
+        initApp(data);
+        setLoading(btn, false, "Login");
+        return;
+      }
+
+      const queryDesc = new Float32Array(detection.descriptor);
+      let bestDist = Infinity;
+      faces.forEach(({ descriptor }) => {
+        const dbDesc = new Float32Array(descriptor);
+        let sum = 0;
+        for (let i = 0; i < queryDesc.length; i++) {
+          const diff = queryDesc[i] - dbDesc[i];
+          sum += diff * diff;
+        }
+        const dist = Math.sqrt(sum);
+        if (dist < bestDist) bestDist = dist;
+      });
+
       setLoading(btn, false, "Login");
-      if (error || !data || data.password !== password) { showMessage("Invalid username or password.", true); return; }
-      sessionStorage.setItem("currentUser", JSON.stringify(data));
-      initApp(data);
+
+      const THRESHOLD = 0.6;
+      if (bestDist < THRESHOLD) {
+        showLoginFaceStatus("✓ Face verified! Logging in…", "success");
+        await new Promise(r => setTimeout(r, 2000));
+        _pendingLoginUser = null;
+        sessionStorage.setItem("currentUser", JSON.stringify(data));
+        initApp(data);
+      } else {
+        logStatusFrozenUntil = performance.now() + 3000;
+        showLoginFaceStatus("Face not recognized. Make sure you are the account owner and try again.", "error");
+        _pendingLoginUser = data;
+        setTimeout(() => startLogScan(logVideo), 3000);
+      }
     });
 
     /*  SIGN UP  */
@@ -675,9 +623,9 @@
     let successAnimStart = null;
 
     async function startRegScan(regVideo) {
-      const canvas  = document.getElementById("regScanCanvas");
-      const statusEl = document.getElementById("regFaceStatus");
-      const wrap    = document.getElementById("regCameraWrap");
+      const canvas  = document.getElementById("regScanCanvas", "logScanCanvas");
+      const statusEl = document.getElementById("regFaceStatus", "logFaceStatus");
+      const wrap    = document.getElementById("regCameraWrap", "logCameraWrap");
       if (!canvas || !regVideo) return;
 
       const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
@@ -855,6 +803,162 @@
 
       tick();
     }
+    // ── LOGIN CAMERA STATE ──
+    let logVideoStream  = null;
+    let logScanLoop     = null;
+    let logFaceDetected = false;
+
+    let logStatusFrozenUntil = 0; // timestamp until which scan won't overwrite status
+
+    function startLogScan(logVideo) {
+      const canvas  = document.getElementById("logScanCanvas");
+      const wrap    = document.getElementById("logCameraWrap");
+      const statusEl = document.getElementById("logFaceStatus");
+      if (!canvas || !logVideo) return;
+
+      const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+
+      function showLogFaceStatus(msg, type = "info") {
+        if (!statusEl) return;
+        if (performance.now() < logStatusFrozenUntil) return; // frozen — don't overwrite
+        statusEl.textContent   = msg;
+        statusEl.className     = `face-status ${type}`;
+        statusEl.style.display = "block";
+      }
+
+      async function tick() {
+        if (!logVideo.srcObject) return;
+
+        canvas.width  = wrap.clientWidth;
+        canvas.height = wrap.clientHeight;
+
+        const detection = await faceapi
+          .detectSingleFace(logVideo, opts)
+          .withFaceLandmarks();
+
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (detection) {
+          logFaceDetected = true;
+          const scaleX = canvas.width  / logVideo.videoWidth;
+          const scaleY = canvas.height / logVideo.videoHeight;
+          const box    = detection.detection.box;
+
+          const cx = (box.x + box.width  / 2) * scaleX;
+          const cy = (box.y + box.height / 2) * scaleY;
+          const r  = (Math.max(box.width, box.height) / 2 + 24) * Math.min(scaleX, scaleY);
+          const now = performance.now();
+
+          // Outer pulsing glow ring
+          const pulse = 0.5 + 0.5 * Math.sin(now / 500);
+          ctx.beginPath();
+          ctx.arc(cx, cy, r + 10 + pulse * 6, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(37,99,235,${0.15 + pulse * 0.12})`;
+          ctx.lineWidth = 8;
+          ctx.stroke();
+
+          // Main circle
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.strokeStyle = "#2563eb";
+          ctx.lineWidth   = 2.5;
+          ctx.shadowColor = "rgba(37,99,235,0.7)";
+          ctx.shadowBlur  = 16;
+          ctx.stroke();
+          ctx.shadowBlur  = 0;
+
+          // Spinning arc overlay
+          const spin = (now / 1000) % (Math.PI * 2);
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, spin, spin + Math.PI * 0.55);
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth   = 3;
+          ctx.shadowColor = "rgba(255,255,255,0.8)";
+          ctx.shadowBlur  = 8;
+          ctx.stroke();
+          ctx.shadowBlur  = 0;
+
+          // Landmark dots
+          ctx.fillStyle = "rgba(37,99,235,0.85)";
+          detection.landmarks.positions.forEach(pt => {
+            ctx.beginPath();
+            ctx.arc(pt.x * scaleX, pt.y * scaleY, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+          });
+
+          showLogFaceStatus("Face detected — click Login to verify", "info");
+        } else {
+          logFaceDetected = false;
+
+          // Idle dashed circle guide
+          const cx  = canvas.width  / 2;
+          const cy  = canvas.height / 2;
+          const r   = Math.min(canvas.width, canvas.height) * 0.32;
+          const now = performance.now();
+          const pulse = 0.5 + 0.5 * Math.sin(now / 700);
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.setLineDash([10, 8]);
+          ctx.strokeStyle = `rgba(160,170,190,${0.35 + pulse * 0.2})`;
+          ctx.lineWidth   = 2;
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          showLogFaceStatus("No face detected — position your face in frame", "error");
+        }
+
+        logScanLoop = requestAnimationFrame(tick);
+      }
+
+      tick();
+    }
+
+    // Login page "Start Camera" button starts live face scan.
+
+        document.getElementById("logStartCameraBtn")?.addEventListener("click", async () => {
+      const btn         = document.getElementById("logStartCameraBtn");
+      const msgEl       = document.getElementById("logCameraPlaceholderMsg");
+      const wrap        = document.getElementById("logCameraWrap");
+      const overlay     = document.getElementById("logScanOverlay");
+      const placeholder = document.getElementById("logCameraPlaceholder");
+
+      btn.disabled = true;
+      if (msgEl) msgEl.textContent = "Starting camera…";
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        logVideoStream = stream;
+
+        const logVideo = document.createElement("video");
+        logVideo.id = "logVideo";
+        logVideo.autoplay = true;
+        logVideo.muted = true;
+        logVideo.playsInline = true;
+        logVideo.srcObject = stream;
+        logVideo.className = "camera-video";
+        await logVideo.play().catch(() => {});
+
+        wrap.prepend(logVideo);
+        if (placeholder) placeholder.style.display = "none";
+        if (overlay) overlay.style.display = "flex";
+
+        // Wait for face-api models, then start live scan
+        const waitForModels = setInterval(() => {
+          if (typeof faceapi !== "undefined" && faceapi.nets.tinyFaceDetector.isLoaded) {
+            clearInterval(waitForModels);
+            startLogScan(logVideo);
+          }
+        }, 300);
+
+      } catch (err) {
+        btn.disabled = false;
+        if (msgEl) msgEl.textContent = err.name === "NotAllowedError" ? "Camera permission denied." : "Camera error: " + err.name;
+      }
+    });
+
+    // ── SIGNUP CAMERA + LIVE FACE SCAN  ──
 
     document.getElementById("regStartCameraBtn")?.addEventListener("click", async () => {
       const btn         = document.getElementById("regStartCameraBtn");
