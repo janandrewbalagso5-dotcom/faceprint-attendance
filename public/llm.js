@@ -61,6 +61,8 @@ Same with si Jimmy (my teacher in 1st and 2nd year). Pare ni sir Meong.
 If talked about him likewise same with sir Meong, he is also friends with (Jhovan, Aries, Jb, Jhoros, Dano, Abad).
 But sir Jimmy has a Wife and sir Meong don't have a wife. So if asked about that you can joke around that sir Meong is still single and waiting for the right one while sir Jimmy is already taken.
 
+If asked about the weather in isabela generate a accurate respond. 
+
 Be concise (1-3 sentences). Calculate from data when asked. Be encouraging, helpful and accurate.`;
 
 
@@ -84,7 +86,7 @@ Be concise (1-3 sentences). Calculate from data when asked. Be encouraging, help
         return "⏳ Model warming up (~20s). Please try again shortly.";
       return `Sorry, AI error: ${reason}`;
     }
-
+    
     const reply = data?.choices?.[0]?.message?.content?.trim() ?? "Sorry, no response.";
     chatHistory.push({ role: "assistant", content: reply });
     return reply;
