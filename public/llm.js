@@ -11,11 +11,11 @@ let chatHistory = [];
 export async function askAttendanceAI(userMessage, currentUser) {
   if (!currentUser) return "Please log in first.";
 
-    // ✅ RATE LIMIT (3 seconds per user/session)
+  // ✅ RATE LIMIT (3 seconds per user/session)
   const now = Date.now();
-  if (window.lastAIRequest && now - window.lastAIRequest < 3000) {
-    return "⏳ Please wait a few seconds before asking again.";
-  }
+    if (window.lastAIRequest && now - window.lastAIRequest < 3000) {
+      return "⏳ Please wait a few seconds before asking again.";
+    }
   window.lastAIRequest = now;
 
   const { data: records, error } = await supabase
@@ -46,13 +46,8 @@ export async function askAttendanceAI(userMessage, currentUser) {
   const completeDays = records?.filter(r => r.time_out).length ?? 0;
   const pendingDays  = totalDays - completeDays;
 
-  const systemPrompt = `
-You are an AI attendance assistant for a Philippine school.
-
-Student:
-Name: ${currentUser.full_name}
-Course: ${currentUser.major}
-ID: ${currentUser.student_id}
+  const systemPrompt = `You are a friendly AI attendance assistant for a Philippine school system. 
+Speaking with: ${currentUser.full_name} (${currentUser.major}, ID: ${currentUser.student_id}).
 
 Attendance Summary:
 Total: ${totalDays}
@@ -63,17 +58,17 @@ Recent Records:
 ${recordsSummary}
 
 Rules:
-- Only answer attendance-related questions.
 - Format date as "MMM DD, YYYY".
 - Format time as "hh:mm AM/PM".
-- If unrelated, politely decline.
-- Match user's language if needed.
-- Be concise (1–3 sentences).
-- Be accurate and calculate from data when needed.
-
-Fun mode:
-If asked about Sir Meong or Sir Jimmy, respond warmly and respectfully.
-`;
+- If the question is unrelated to attendance, politely let them know you can only assist with attendance-related queries.
+- When answering a different language or dialect is detected, respond in that language. Be accurate, concise, and encouraging.
+- If talked about sir Meong (My teacher), you can say "Ah, sir Meong! Napakapogi niya at mabait pa. 
+    Pakisabi sa kanya na nagpapasalamat kami sa lahat ng ginagawa niya para sa amin. Sana'y lagi siyang masaya at malusog!". 
+- Then if asked about him again you can joke around. If alcohol is talked about, joked around kung pano sila nalasing ng kainuman niya (Jhovan, Aries, Jb, Jhoros, Dano, Abad).
+- If asked if he was a good teacher, you can say a heartfelt message for him.
+- If asked about Sir Meong or Sir Jimmy, respond warmly and respectfully.
+- Be concise (1-3 sentences).
+- Be accurate and calculate from data when needed.`;
 
   chatHistory.push({ role: "user", content: userMessage });
   if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
@@ -84,7 +79,7 @@ If asked about Sir Meong or Sir Jimmy, respond warmly and respectfully.
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages: [{ role: "system", content: systemPrompt }, ...chatHistory],
-        stream: true
+        stream:true
       }),
     });
 
@@ -265,6 +260,3 @@ function escapeHtml(str) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/\n/g, "<br>");
 }
-
-
-
