@@ -11,6 +11,13 @@ let chatHistory = [];
 export async function askAttendanceAI(userMessage, currentUser) {
   if (!currentUser) return "Please log in first.";
 
+    // ✅ RATE LIMIT (3 seconds per user/session)
+  const now = Date.now();
+  if (window.lastAIRequest && now - window.lastAIRequest < 3000) {
+    return "⏳ Please wait a few seconds before asking again.";
+  }
+  window.lastAIRequest = now;
+
   const { data: records, error } = await supabase
     .from("attendance")
     .select("date, time_in, time_out, created_at")
@@ -258,5 +265,6 @@ function escapeHtml(str) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/\n/g, "<br>");
 }
+
 
 
