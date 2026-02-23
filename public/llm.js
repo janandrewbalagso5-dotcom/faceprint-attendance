@@ -77,6 +77,7 @@ If asked about Sir Meong or Sir Jimmy, respond warmly and respectfully.
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages: [{ role: "system", content: systemPrompt }, ...chatHistory],
+        stream: true
       }),
     });
 
@@ -257,4 +258,5 @@ function escapeHtml(str) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/\n/g, "<br>");
 }
+
 
