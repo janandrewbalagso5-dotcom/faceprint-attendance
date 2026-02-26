@@ -114,7 +114,7 @@ function capturePhoto(video) {
 }
 
 /* REGISTER FACE */
-// Average multiple Float32Array descriptors into one for a more stable template
+
 function averageDescriptors(descriptors) {
   const len = descriptors[0].length;
   const avg = new Float32Array(len);
@@ -140,7 +140,6 @@ async function registerFace() {
     showFaceStatus('Camera not ready. Click "Start Camera" first.', true); return;
   }
 
-  // Collect REGISTER_SAMPLES descriptors with short pauses between captures
   const samples = [];
   for (let i = 0; i < REGISTER_SAMPLES; i++) {
     showFaceStatus(`Capturing sample ${i + 1} of ${REGISTER_SAMPLES} — hold still…`);
@@ -188,7 +187,7 @@ async function registerFace() {
 
   const { error: imgError } = await supabase.from("face_images").insert({
     user_id:    user.id,
-    descriptor: Array.from(avgDescriptor), // store averaged descriptor
+    descriptor: Array.from(avgDescriptor),
     photo,
   });
   if (imgError) { showFaceStatus("Failed to save face image: " + imgError.message, true); return; }
@@ -352,8 +351,6 @@ export async function loadDashboard() {
 
   function formatTimePH(ts) {
     if (!ts) return "—";
-    // Supabase timestamptz columns return UTC strings like "2026-02-20T06:02:00+00:00"
-    // Ensure it's treated as UTC by appending Z if no timezone info present
     const normalized = /[Z+\-]\d{2}:?\d{2}$/.test(ts) ? ts : ts + "Z";
     const d = new Date(normalized);
     if (isNaN(d)) return "—";
@@ -367,8 +364,6 @@ export async function loadDashboard() {
 
   tbody.innerHTML = rows.map(row => {
     const name    = userMap[row.user_id]?.full_name ?? "Unknown";
-    // Derive the display date from time_in in Manila timezone (not the stored date column
-    // which uses UTC CURRENT_DATE and can be off by one day before 8 AM UTC / 4 PM Manila)
     const dateStr = row.time_in
       ? (() => {
           const normalized = /[Z+\-]\d{2}:?\d{2}$/.test(row.time_in) ? row.time_in : row.time_in + "Z";
@@ -416,4 +411,5 @@ document.addEventListener("DOMContentLoaded", () => {
   loadDashboard();
   setInterval(loadDashboard, 30_000);
 });
+
 
