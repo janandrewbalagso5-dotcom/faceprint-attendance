@@ -29,11 +29,8 @@ async function getServerTime() {
   return data ?? new Date().toISOString(); // fallback to client if rpc fails
 }
 
-// Store timestamps as UTC (toISOString). Display is converted to Manila time separately.
-
-// Returns today's session row for the user, or null if none exists.
 // Uses created_at within the past 24h to avoid any date/timezone mismatch
-// between client-supplied date strings and the DB's UTC CURRENT_DATE.
+
 export async function getTodaySession(userId) {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
@@ -419,3 +416,4 @@ document.addEventListener("DOMContentLoaded", () => {
   loadDashboard();
   setInterval(loadDashboard, 30_000);
 });
+
