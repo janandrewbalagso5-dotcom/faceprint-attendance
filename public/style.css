@@ -220,6 +220,26 @@ input:focus, select:focus {
   background:   #fff;
 }
 
+/* ── Eye Toggle ── */
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-right: 42px !important; }
+.eye-toggle {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--text-3);
+  padding: 0;
+  line-height: 1;
+  z-index: 2;
+  transition: color var(--transition);
+}
+.eye-toggle:hover { color: var(--accent); }
+
 .mt-12 { margin-top: 12px; }
 
 /* BUTTONS */
@@ -803,3 +823,4 @@ tbody tr:hover { background: var(--bg-3); }
   .topbar-brand .brand-name { font-size: 0.88rem; }
   .card { padding: 14px; }
 }
+
