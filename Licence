@@ -1,4 +1,3 @@
-
 ---
 
 This is **ready-to-use**.  
@@ -9,5 +8,18 @@ You can now:
 2. Save `schema.sql` and `README.md` inside  
 3. Run `schema.sql` in Supabase SQL editor  
 4. Deploy frontend files (`index.html`, `face.js`, etc.)  
+
+---
+
+---
+
+This is **ready-to-use**.
+
+You can now:
+
+1. Create a folder `attendance-system`
+2. Save `schema.sql` and `README.md` inside
+3. Run `schema.sql` in Supabase SQL editor
+4. Deploy frontend files (`index.html`, `face.js`, etc.)
 
 ---
