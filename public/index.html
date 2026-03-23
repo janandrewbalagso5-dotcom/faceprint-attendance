@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attendance System</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+
+  <!-- Face API CDN -->
+  <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+</head>
+
+<body>
+
+  <!-- BACKGROUND -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-1" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-2" aria-hidden="true"></div>
+
+  <video id="video" class="video-hidden" autoplay muted playsinline></video>
+
+  <!-- AUTH SECTION -->
+  <div id="authSection" class="auth-wrapper">
+    <div class="auth-card signup-wide">
+
+      <!-- Brand -->
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-name">Attendance System</h1>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="auth-tabs" role="tablist">
+        <button id="tabLogin" class="tab-btn active" role="tab" aria-selected="true" aria-controls="panelLogin">
+          Login
+        </button>
+        <button id="tabSignup" class="tab-btn" role="tab" aria-selected="false" aria-controls="panelSignup">
+          Sign Up
+        </button>
+      </div>
+
+      <!-- Auth Message -->
+      <div id="authMessage" class="auth-message" style="display:none;" role="alert"></div>
+
+      <!-- ── LOGIN PANEL ── -->
+      <div id="panelLogin" class="tab-panel active" role="tabpanel">
+        <div class="signup-two-col">
+
+          <!-- Left: Account fields -->
+          <div class="signup-fields">
+            <div class="field-row">
+              <div class="field-group">
+                <label for="authUsername">Username</label>
+                <input id="authUsername" type="text" placeholder="username" autocomplete="username" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="authPassword">Password</label>
+                <div class="pw-wrap">
+                  <input id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password" />
+                  <button class="eye-toggle" type="button" onclick="toggleEye('authPassword',this)" title="Show/hide">👁</button>
+                </div>
+              </div>
+            </div>
+            <button id="loginBtn" class="btn btn-primary" type="button" style="width:100%;margin-top:6px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              Login
+            </button>
+          </div>
+
+          <!-- Right: Face Login -->
+          <div class="signup-face">
+            <div class="signup-face-label">Face Login <span class="face-optional">(required)</span></div>
+            <div class="camera-wrap signup-camera-wrap" id="logCameraWrap">
+              <div class="camera-placeholder" id="logCameraPlaceholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+                  <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+                </svg>
+                <p id="logCameraPlaceholderMsg">Camera not started</p>
+                <button id="logStartCameraBtn" class="btn btn-secondary" type="button" style="margin-top:6px;font-size:0.8rem;padding:7px 14px;">
+                  ▶ Start Camera
+                </button>
+              </div>
+              <div class="camera-overlay" aria-hidden="true" id="logScanOverlay" style="display:none;">
+                <canvas id="logScanCanvas" class="log-scan-canvas"></canvas>
+              </div>
+            </div>
+            <div id="logFaceStatus" class="face-status" style="display:none;margin-top:8px;"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── SIGNUP PANEL ── -->
+      <div id="panelSignup" class="tab-panel" role="tabpanel">
+        <div class="signup-two-col">
+          <!-- Left: Account fields -->
+          <div class="signup-fields">
+            <div class="field-row">
+              <div class="field-group">
+                <label for="authUsernameReg">Username</label>
+                <input id="authUsernameReg" type="text" placeholder="username" autocomplete="username" />
+              </div>
+              <div class="field-group">
+                <label for="authPasswordReg">Password</label>
+                <div class="pw-wrap">
+                  <input id="authPasswordReg" type="password" placeholder="••••••••" autocomplete="new-password" />
+                  <button class="eye-toggle" type="button" onclick="toggleEye('authPasswordReg',this)" title="Show/hide">👁</button>
+                </div>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label for="regStudentId">Student ID</label>
+                <input id="regStudentId" type="text" placeholder="231-08-0001" pattern="\d{3}-\d{2}-\d{4}" title="Format: 231-08-0001" maxlength="12" />
+              </div>
+              <div class="field-group">
+                <label for="regMajor">Major</label>
+                <select id="regMajor">
+                  <option value="" disabled selected>Select…</option>
+                  <option value="BSIT">BSIT</option>
+                  <option value="BSA">BSA</option>
+                  <option value="BSBA">BSBA</option>
+                  <option value="BSCRIM">BSCRIM</option>
+                  <option value="COA">COA</option>
+                  <option value="BSHM">BSHM</option>
+                  <option value="BEED">BEED</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="regFullName">Full Name</label>
+              <input id="regFullName" type="text" placeholder="Juan Dela Cruz" autocomplete="name" />
+            </div>
+            <button id="signupBtn" class="btn btn-primary" type="button">Create Account</button>
+          </div>
+
+          <!-- Right: Face Registration -->
+          <div class="signup-face">
+            <div class="signup-face-label">Face Registration <span class="face-optional">(required)</span></div>
+            <div class="camera-wrap signup-camera-wrap" id="regCameraWrap">
+              <div class="camera-placeholder" id="regCameraPlaceholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+                  <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+                </svg>
+                <p id="regCameraPlaceholderMsg">Camera not started</p>
+                <button id="regStartCameraBtn" class="btn btn-secondary" type="button" style="margin-top:6px;font-size:0.8rem;padding:7px 14px;">
+                  ▶ Start Camera
+                </button>
+              </div>
+              <div class="camera-overlay" aria-hidden="true" id="regScanOverlay" style="display:none;">
+                <canvas id="regScanCanvas" class="reg-scan-canvas"></canvas>
+              </div>
+            </div>
+            <div id="regFaceStatus" class="face-status" style="display:none;margin-top:8px;"></div>
+            <button id="regRegisterFaceBtn" class="btn btn-secondary" type="button" style="width:100%;margin-top:10px;font-size:0.85rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Register Face
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- APP SECTION -->
+  <div id="appSection" style="display:none;">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <div class="brand-icon small" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div class="topbar-brand-text">
+          <span class="brand-name">Attendance System</span>
+          <span class="topbar-mobile-user">Hi, <strong id="welcomeNameMobile"></strong></span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="welcome-text">Welcome, <strong id="welcomeName"></strong></span>
+        <button id="logoutBtn" class="btn btn-ghost" type="button">Logout</button>
+      </div>
+    </header>
+
+    <main class="app-main">
+
+      <!-- LEFT COLUMN -->
+      <aside class="left-col">
+
+        <!-- Profile Card -->
+        <div class="card profile-card" id="profileCard" hidden>
+          <div class="profile-photo-wrap">
+            <img id="profilePhoto" class="profile-photo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23888'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 20c0-4 3.6-7 8-7s8 3 8 7'/%3E%3C/svg%3E" alt="Profile photo" />
+          </div>
+          <div class="profile-info">
+            <h3 id="profileName" class="profile-name">—</h3>
+            <div class="profile-meta">
+              <span class="meta-badge" id="profileStudentId">—</span>
+              <span class="meta-badge accent" id="profileMajor">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fingerprint Setup -->
+        <div class="card" id="fingerprintSetupCard">
+          <div class="card-header">
+            <h2 class="card-title">Fingerprint</h2>
+          </div>
+          <p style="font-size:0.85rem;color:var(--text-2);margin-bottom:12px;">
+            Register your fingerprint once so you can use it to mark attendance.
+          </p>
+          <button id="registerFingerprintBtn" class="btn btn-secondary" type="button" style="width:100%;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07"/>
+            </svg>
+            Setup Fingerprint
+          </button>
+          <div id="fingerprintMessage" class="fp-message" style="display:none;margin-top:10px;"></div>
+        </div>
+
+        <!-- Mark Attendance -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Mark Attendance</h2>
+          </div>
+
+          <!-- Camera wrap (for face attendance) -->
+          <div class="camera-wrap" id="cameraWrap">
+            <div class="camera-placeholder" id="cameraPlaceholder">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+                <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+              </svg>
+              <p id="cameraPlaceholderMsg">Camera not started</p>
+              <button id="startCameraBtn" class="btn btn-secondary" type="button" style="margin-top:8px;">
+                ▶ Start Camera
+              </button>
+            </div>
+            <div class="camera-overlay" aria-hidden="true" id="scanOverlay" style="display:none;">
+              <div class="scan-ring"></div>
+            </div>
+          </div>
+
+          <div id="faceStatus" class="face-status" style="display:none;"></div>
+
+          <div class="btn-row">
+            <button id="attendanceBtn" class="btn btn-primary" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Mark Attendance (Face)
+            </button>
+          </div>
+          <div class="btn-row" style="margin-top:8px;">
+            <button id="fingerprintAttendanceBtn" class="btn btn-primary" type="button" style="width:100%;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07"/>
+              </svg>
+              Mark Attendance (Fingerprint)
+            </button>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- RIGHT COLUMN -->
+      <section class="right-col">
+        <div class="card dashboard-card">
+          <div class="card-header">
+            <h2 class="card-title">Attendance Log</h2>
+            <div class="dashboard-meta">
+              <span class="live-badge">
+                <span class="live-dot"></span>
+                Live
+              </span>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Date</th>
+                  <th>Time In</th>
+                  <th>Time Out</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-body"></tbody>
+            </table>
+          </div>
+
+          <div id="dashboardEmpty" class="empty-state" style="display:none;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <p>No attendance records yet.</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODULE SCRIPTS -->
+  <script type="module" src="supabase.js"></script>
+  <script type="module" src="face.js"></script>
+  <script type="module" src="fingerprint.js"></script>
+  <script type="module" src="script.js"></script>
+</body>
+</html>
